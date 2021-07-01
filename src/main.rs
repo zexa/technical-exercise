@@ -7,15 +7,23 @@ use tide::Response;
 #[async_std::main]
 async fn main() -> tide::Result<()> {
     let mut app = tide::new();
+    app.at("/pokemon/:pokemon_name").get(pokemon_standard);
     app.at("/pokemon/translated/:pokemon_name").get(pokemon_translated);
     // TODO: Make port configurable. Probs via env.
     app.listen("0.0.0.0:5000").await?;
     Ok(())
 }
 
+async fn pokemon_standard(req: Request<()>) -> tide::Result {
+    let mut response = Response::new(200);
+    response.set_body(Body::from_json(&get_pokemon(req.param("pokemon_name")?).await?)?);
+
+    Ok(response)
+}
+
 // HTTP/GET /pokemon/translated/:pokemon_name
 // http://localhost:5000/pokemon/translated/mewtwo
-async fn pokemon_translated(mut req: Request<()>) -> tide::Result {
+async fn pokemon_translated(req: Request<()>) -> tide::Result {
     let mut pokemon = get_pokemon(req.param("pokemon_name")?).await?;
     pokemon.change_description(uwuify_str_sse(pokemon.description()));
 
@@ -43,7 +51,7 @@ impl Pokemon {
     }
 }
 
-async fn get_pokemon(name: &str) -> std::io::Result<Pokemon> {
+async fn get_pokemon(_name: &str) -> std::io::Result<Pokemon> {
     Ok(Pokemon {
         name: "Charizard".to_string(),
         description: "Best collectible".to_string(),
