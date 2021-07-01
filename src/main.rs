@@ -25,7 +25,16 @@ async fn pokemon_standard(req: Request<()>) -> tide::Result {
 // http://localhost:5000/pokemon/translated/mewtwo
 async fn pokemon_translated(req: Request<()>) -> tide::Result {
     let mut pokemon = get_pokemon(req.param("pokemon_name")?).await?;
-    pokemon.change_description(uwuify_str_sse(pokemon.description()));
+
+    let translation = match pokemon.habitat() {
+        "cave" => yoda_translate(pokemon.description()).await,
+        _ => shakespeare_translate(pokemon.description()).await,
+    };
+
+    match translation {
+        Ok(translation) => pokemon.change_description(translation),
+        _ => {},
+    }
 
     let mut response = Response::new(200);
     response.set_body(Body::from_json(&pokemon)?);
@@ -49,6 +58,10 @@ impl Pokemon {
     pub fn change_description(&mut self, description: String) {
         self.description = description;
     }
+
+    pub fn habitat(&self) -> &str {
+        &self.habitat
+    }
 }
 
 async fn get_pokemon(_name: &str) -> std::io::Result<Pokemon> {
@@ -58,5 +71,13 @@ async fn get_pokemon(_name: &str) -> std::io::Result<Pokemon> {
         habitat: "Caves, I guess".to_string(),
         is_legendary: false,
     })
+}
+
+async fn yoda_translate(text: &str) -> std::io::Result<String> {
+    Ok(String::from("huh"))
+}
+
+async fn shakespeare_translate(text: &str) -> std::io::Result<String> {
+    Ok(String::from("ugh"))
 }
 
