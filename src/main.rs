@@ -1,12 +1,28 @@
+use dotenv::dotenv;
+use std::env;
 use tide::log;
 use tide::prelude::*;
 use tide::Body;
 use tide::Request;
 use tide::Response;
 
+#[derive(Clone)]
+struct ApplicationState {
+    translations_api_key: Option<String>,
+}
+
+impl ApplicationState {
+    pub fn translations_api_key(&self) -> &Option<String> {
+        &self.translations_api_key
+    }
+}
+
 #[async_std::main]
 async fn main() -> tide::Result<()> {
-    let mut app = tide::new();
+    dotenv().ok();
+    let mut app = tide::with_state(ApplicationState {
+        translations_api_key: env::var("TRANSLATIONS_API_KEY").ok(),
+    });
     log::start();
     app.at("/pokemon/:pokemon_name").get(pokemon_standard);
     app.at("/pokemon/translated/:pokemon_name")
@@ -17,7 +33,7 @@ async fn main() -> tide::Result<()> {
     Ok(())
 }
 
-async fn pokemon_standard(req: Request<()>) -> tide::Result {
+async fn pokemon_standard(req: Request<ApplicationState>) -> tide::Result {
     let pokemon_name = req.param("pokemon_name")?;
     log::info!("Searching for {}", pokemon_name);
     match &get_pokemon(&pokemon_name).await {
@@ -38,15 +54,17 @@ async fn pokemon_standard(req: Request<()>) -> tide::Result {
 
 // HTTP/GET /pokemon/translated/:pokemon_name
 // http://localhost:5000/pokemon/translated/mewtwo
-async fn pokemon_translated(req: Request<()>) -> tide::Result {
+async fn pokemon_translated(req: Request<ApplicationState>) -> tide::Result {
     let mut pokemon = match get_pokemon(req.param("pokemon_name")?).await {
         Ok(pok) => pok,
         _ => return Ok(Response::new(404)),
     };
 
+    let translation_api = req.state().translations_api_key();
+
     let translation = match pokemon.habitat() {
-        "cave" => yoda_translate(pokemon.description()).await,
-        _ => shakespeare_translate(pokemon.description()).await,
+        "cave" => yoda_translate(pokemon.description(), translation_api).await,
+        _ => shakespeare_translate(pokemon.description(), translation_api).await,
     };
 
     match translation {
@@ -166,18 +184,68 @@ async fn get_pokemon(name: &str) -> tide::Result<Pokemon> {
     Ok(pokemon.into())
 }
 
-async fn yoda_translate(text: &str) -> std::io::Result<String> {
-    Ok(String::from(text))
+#[derive(Debug, PartialEq, Deserialize)]
+struct TranslationContents {
+    translated: String,
 }
 
-async fn shakespeare_translate(text: &str) -> std::io::Result<String> {
-    Ok(String::from(text))
+impl TranslationContents {
+    pub fn consume(self) -> String {
+        self.translated
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize)]
+struct Translation {
+    contents: TranslationContents,
+}
+
+impl Translation {
+    pub fn consume(self) -> String {
+        self.contents.consume()
+    }
+}
+
+async fn yoda_translate(text: &str, api_key: &Option<String>) -> tide::Result<String> {
+    let request = match api_key {
+        Some(key) => surf::post(format!(
+            "https://api.funtranslations.com/translate/yoda.json?text={}",
+            text
+        ))
+        .header("X-Funtranslations-Api-Secret", key),
+        _ => surf::post(format!(
+            "https://api.funtranslations.com/translate/yoda.json?text={}",
+            text
+        )),
+    };
+
+    let translation: Translation = request.recv_json().await?;
+
+    Ok(translation.consume())
+}
+
+async fn shakespeare_translate(text: &str, api_key: &Option<String>) -> tide::Result<String> {
+    let request = match api_key {
+        Some(key) => surf::post(format!(
+            "https://api.funtranslations.com/translate/shakespeare.json?text={}",
+            text
+        ))
+        .header("X-Funtranslations-Api-Secret", key),
+        _ => surf::post(format!(
+            "https://api.funtranslations.com/translate/shakespeare.json?text={}",
+            text
+        )),
+    };
+
+    let translation: Translation = request.recv_json().await?;
+
+    Ok(translation.consume())
 }
 
 mod test {
     use crate::{Language, Pokemon, PokemonSpecies, PokemonSpeciesFlavorTextEntry};
 
-    fn get_example_pokemon_species() -> PokemonSpecies {
+    fn get_wormodam_pokemon_species() -> PokemonSpecies {
         PokemonSpecies {
             name: String::from("wormadam"),
             is_legendary: false,
@@ -300,7 +368,7 @@ mod test {
         }"#;
 
         Ok(assert_eq!(
-            get_example_pokemon_species(),
+            get_wormodam_pokemon_species(),
             serde_json::from_str(json)?
         ))
     }
@@ -314,6 +382,6 @@ mod test {
             is_legendary: false,
         };
 
-        Ok(assert_eq!(expected, get_example_pokemon_species().into()))
+        Ok(assert_eq!(expected, get_wormodam_pokemon_species().into()))
     }
 }
