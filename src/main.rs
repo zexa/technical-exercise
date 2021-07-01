@@ -1,6 +1,5 @@
 use tide::prelude::*;
 use tide::Request;
-use uwuifier::uwuify_str_sse;
 use tide::Body;
 use tide::Response;
 
