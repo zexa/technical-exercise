@@ -6,6 +6,8 @@ use tide::Body;
 use tide::Request;
 use tide::Response;
 
+// TODO: We could avoid all those clones by initializing translations_api_key with lazy_static
+// and just passing references to the translation api.
 #[derive(Clone)]
 struct ApplicationState {
     translations_api_key: Option<String>,
@@ -169,13 +171,15 @@ impl Into<Pokemon> for PokemonSpecies {
                     },
                 })
                 .consume()
-                .replace("\n", " ")
+                // TODO: At production we could probably optimize these two replacements into one.
+                // https://users.rust-lang.org/t/string-replace-performance/7478/5 has some nice
+                // suggestions.
+                .replace("\n", " ") //
                 .replace("\u{c}", " "),
         }
     }
 }
 
-// https://pokeapi.co/api/v2/pokemon-species/{id or name}/
 async fn get_pokemon(name: &str) -> tide::Result<Pokemon> {
     let url = format!("https://pokeapi.co/api/v2/pokemon-species/{}", name);
     log::info!("Requesting pokemon {}", &url);
@@ -242,6 +246,7 @@ async fn shakespeare_translate(text: &str, api_key: &Option<String>) -> tide::Re
     Ok(translation.consume())
 }
 
+#[cfg(test)]
 mod test {
     use crate::{Language, Pokemon, PokemonSpecies, PokemonSpeciesFlavorTextEntry};
 
