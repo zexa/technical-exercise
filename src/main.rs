@@ -1,3 +1,5 @@
+mod pokemon;
+
 use dotenv::dotenv;
 use std::env;
 use tide::log;
