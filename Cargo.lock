@@ -1635,6 +1635,7 @@ dependencies = [
  "serde_json",
  "surf",
  "tide",
+ "tide-testing",
 ]
 
 [[package]]
@@ -1678,6 +1679,18 @@ dependencies = [
  "route-recognizer",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tide-testing"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a59ea33dec6d205e4173cf7825dcfc78600c1726d931132d99b38b932495111"
+dependencies = [
+ "serde",
+ "serde_json",
+ "surf",
+ "tide",
 ]
 
 [[package]]
