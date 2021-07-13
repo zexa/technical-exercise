@@ -1,0 +1,5 @@
+services:
+  technical_exercise:
+    build: .
+    ports:
+      - 5000:5000
