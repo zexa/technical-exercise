@@ -24,6 +24,7 @@ In no particular order here's a few things that I'd change if I were to keep wor
   
 ## Running
 ```docker-compose up```
+
 The command will build and start a docker container and bind it to port 5000.
 
 Might take a bit, so you should grab a coffee or read to the Dockerfile in the meantime.
